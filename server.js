@@ -397,16 +397,12 @@ app.post('/api/appointments', async (req, res) => {
 /*
  * Rotas da aplicação
  */
-app.get('/agendar', (_req, res) => {
-  res.sendFile(
-    path.join(__dirname, 'index.html')
-  );
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.get('/', (_req, res) => {
-  res.sendFile(
-    path.join(__dirname, 'app.html')
-  );
+app.get('/app', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'app.html'));
 });
 
 app.use(express.static(__dirname));
