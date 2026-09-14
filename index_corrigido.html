@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#FFD83D">
+<title>Barbearia Gestão</title>
+<style>
+:root{--yellow:#ffd83d;--green:#159b68;--red:#b42318;--ink:#243244;--muted:#738196;--bg:#f4f6f9;--card:#fff;--line:#e3e8ef}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--ink)}
+button,input,select{font:inherit} button{border:0;cursor:pointer}
+.app{max-width:620px;margin:auto;min-height:100vh;padding-bottom:82px}
+header{background:var(--yellow);padding:18px 18px 14px;position:sticky;top:0;z-index:5;box-shadow:0 1px 8px #0001}
+.brand{font-size:23px;font-weight:800}.sub{font-size:13px;color:#5e5a32;margin-top:2px}
+main{padding:16px}
+.page{display:none}.page.active{display:block}
+h1{font-size:24px;margin:8px 0 4px}.hint{color:var(--muted);font-size:14px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 2px 10px #22304a08}
+.metric small{display:block;color:var(--muted);font-size:13px}.metric strong{font-size:23px;display:block;margin-top:4px}.green{color:var(--green)}.red{color:var(--red)}
+.section{margin-top:18px}.section-title{display:flex;justify-content:space-between;align-items:center;font-weight:800;margin-bottom:10px}
+.primary{background:var(--green);color:white;padding:13px 16px;border-radius:13px;font-weight:800}.danger{background:var(--red);color:#fff;padding:13px 16px;border-radius:13px;font-weight:800}.ghost{background:#eef2f6;color:var(--ink);padding:10px 13px;border-radius:12px;font-weight:700}
+form.card{display:grid;gap:11px}label{font-size:13px;font-weight:750;color:#536174}input,select{width:100%;padding:13px;border:1px solid #cfd7e2;border-radius:12px;background:white;outline:none}input:focus,select:focus{border-color:#8ca4bd}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.full{grid-column:1/-1}
+.list{display:grid;gap:9px}.item{background:#fff;border:1px solid var(--line);border-radius:15px;padding:13px;display:flex;justify-content:space-between;gap:10px}.item b{display:block}.item small{color:var(--muted)}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(620px,100%);background:#fff;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding:7px 5px calc(7px + env(safe-area-inset-bottom));z-index:10}.nav button{background:none;color:#8190a2;font-size:11px;font-weight:700;padding:6px 2px}.nav button.active{color:var(--green)}.ico{font-size:21px;display:block;line-height:22px}
+.bar{height:14px;background:#e9edf2;border-radius:99px;overflow:hidden}.fill{height:100%;background:var(--green);border-radius:99px}
+.empty{text-align:center;color:var(--muted);padding:25px 10px}.low{background:#fff4f2;border-color:#f1c4bd}.pill{display:inline-block;padding:4px 8px;border-radius:99px;background:#eaf7f1;color:var(--green);font-size:11px;font-weight:800}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#243244;color:#fff;padding:11px 16px;border-radius:12px;display:none;z-index:20}
+canvas{width:100%;height:220px;display:block}.tabs{display:flex;gap:7px;overflow:auto;margin-bottom:12px}.tabs button{white-space:nowrap}.tabs .on{background:var(--yellow)}
+@media(min-width:621px){body{padding:0 0}.nav{border-radius:18px 18px 0 0}}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div class="brand">✂️ Barbearia Gestão</div><div class="sub">Controle seus cortes, gastos, lucro e estoque</div></header>
+<main>
+
+<section id="inicio" class="page active">
+<h1>Visão geral</h1><div class="hint" id="today"></div>
+<div class="grid">
+<div class="card metric"><small>Vendas</small><strong class="green" id="mSales">R$ 0,00</strong></div>
+<div class="card metric"><small>Gastos</small><strong class="red" id="mExpenses">R$ 0,00</strong></div>
+<div class="card metric"><small>Lucro</small><strong id="mProfit">R$ 0,00</strong></div>
+<div class="card metric"><small>Cortes</small><strong id="mCuts">0</strong></div>
+</div>
+<div class="section card"><div class="section-title">Movimento dos últimos 7 dias</div><canvas id="chart"></canvas></div>
+<div class="section"><div class="section-title">Ações rápidas</div><div class="grid">
+<button class="primary" onclick="go('vendas');openSale()">＋ Novo corte</button>
+<button class="danger" onclick="go('gastos');openExpense()">− Novo gasto</button>
+</div></div>
+<div class="section card"><div class="section-title">Estoque baixo <span class="pill" id="lowCount">0</span></div><div id="lowStock"></div></div>
+</section>
+
+<section id="vendas" class="page">
+<h1>Vendas / Cortes</h1><div class="hint">Registre cada atendimento e acompanhe o dinheiro que entrou.</div>
+<form id="saleForm" class="card" style="display:none" onsubmit="saveSale(event)">
+<div class="row"><div><label>Nome do corte</label><input id="sCut" placeholder="Ex.: Degradê" required></div><div><label>Valor</label><input id="sValue" type="number" step=".01" min="0" placeholder="25,00" required></div></div>
+<div class="row"><div><label>Cliente (opcional)</label><input id="sClient" placeholder="Nome"></div><div><label>Pagamento</label><select id="sPay"><option>Dinheiro</option><option>Pix</option><option>Cartão</option><option>Transferência</option><option>Outro</option></select></div></div>
+<div class="row"><div><label>Desconto (R$)</label><input id="sDiscount" type="number" step=".01" min="0" value="0"></div><div><label>Data</label><input id="sDate" type="date"></div></div>
+<div class="row"><button type="submit" class="primary">Salvar corte</button><button type="button" class="ghost" onclick="closeForms()">Cancelar</button></div>
+</form>
+<div class="section-title">Histórico <button class="primary" onclick="openSale()">＋ Corte</button></div>
+<div id="salesList" class="list"></div>
+</section>
+
+<section id="gastos" class="page">
+<h1>Gastos</h1><div class="hint">Anote despesas da barbearia para calcular o lucro real.</div>
+<form id="expenseForm" class="card" style="display:none" onsubmit="saveExpense(event)">
+<div class="row"><div><label>Descrição</label><input id="eDesc" placeholder="Ex.: Lâminas" required></div><div><label>Valor</label><input id="eValue" type="number" step=".01" min="0" required></div></div>
+<div class="row"><div><label>Categoria</label><select id="eCat"><option>Material</option><option>Aluguel</option><option>Energia</option><option>Água</option><option>Internet</option><option>Marketing</option><option>Outros</option></select></div><div><label>Data</label><input id="eDate" type="date"></div></div>
+<div class="row"><button type="submit" class="danger">Salvar gasto</button><button type="button" class="ghost" onclick="closeForms()">Cancelar</button></div>
+</form>
+<div class="section-title">Histórico <button class="danger" onclick="openExpense()">＋ Gasto</button></div>
+<div id="expensesList" class="list"></div>
+</section>
+
+<section id="estoque" class="page">
+<h1>Estoque</h1><div class="hint">Controle produtos, quantidade, custo e alerta de estoque baixo.</div>
+<form id="stockForm" class="card" style="display:none" onsubmit="saveStock(event)">
+<div class="row"><div><label>Produto</label><input id="pName" placeholder="Ex.: Pomada" required></div><div><label>Quantidade</label><input id="pQty" type="number" step="1" min="0" required></div></div>
+<div class="row"><div><label>Estoque mínimo</label><input id="pMin" type="number" step="1" min="0" value="2"></div><div><label>Custo por unidade</label><input id="pCost" type="number" step=".01" min="0" value="0"></div></div>
+<div class="row"><button type="submit" class="primary">Adicionar produto</button><button type="button" class="ghost" onclick="closeForms()">Cancelar</button></div>
+</form>
+<div class="section-title">Produtos <button class="primary" onclick="openStock()">＋ Produto</button></div>
+<div id="stockList" class="list"></div>
+</section>
+
+<section id="relatorios" class="page">
+<h1>Relatórios</h1><div class="hint">Veja o desempenho e descubra onde está seu dinheiro.</div>
+<div class="tabs"><button class="ghost on" onclick="reportMode('7')">7 dias</button><button class="ghost" onclick="reportMode('30')">30 dias</button><button class="ghost" onclick="reportMode('all')">Tudo</button></div>
+<div class="grid"><div class="card metric"><small>Faturamento</small><strong class="green" id="rSales">R$ 0,00</strong></div><div class="card metric"><small>Despesas</small><strong class="red" id="rExpenses">R$ 0,00</strong></div><div class="card metric"><small>Lucro</small><strong id="rProfit">R$ 0,00</strong></div><div class="card metric"><small>Margem</small><strong id="rMargin">0%</strong></div></div>
+<div class="section card"><div class="section-title">Vendas x gastos por dia</div><canvas id="reportChart"></canvas></div>
+<div class="section card"><div class="section-title">Formas de pagamento</div><div id="payments"></div></div>
+</section>
+
+</main>
+<nav class="nav">
+<button onclick="go('inicio')" data-page="inicio" class="active"><span class="ico">⌂</span>Início</button>
+<button onclick="go('vendas')" data-page="vendas"><span class="ico">✂</span>Cortes</button>
+<button onclick="go('gastos')" data-page="gastos"><span class="ico">−</span>Gastos</button>
+<button onclick="go('estoque')" data-page="estoque"><span class="ico">▣</span>Estoque</button>
+<button onclick="go('relatorios')" data-page="relatorios"><span class="ico">▥</span>Relatórios</button>
+</nav>
+<div id="toast" class="toast"></div>
+</div>
+
+<script>
+const KEY='barbearia_gestao_v1';
+let db=JSON.parse(localStorage.getItem(KEY)||'{"sales":[],"expenses":[],"stock":[]}');
+const brl=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const isoToday=()=>new Date().toISOString().slice(0,10);
+function persist(){localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
+function toast(t){let x=document.getElementById('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}
+function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));renderAll();scrollTo(0,0)}
+function closeForms(){document.querySelectorAll('form').forEach(f=>f.style.display='none')}
+function openSale(){closeForms();document.getElementById('saleForm').style.display='grid';document.getElementById('sDate').value=isoToday();document.getElementById('sCut').focus()}
+function openExpense(){closeForms();document.getElementById('expenseForm').style.display='grid';document.getElementById('eDate').value=isoToday();document.getElementById('eDesc').focus()}
+function openStock(){closeForms();document.getElementById('stockForm').style.display='grid';document.getElementById('pName').focus()}
+function saveSale(e){e.preventDefault();let value=+sValue.value||0,discount=+sDiscount.value||0;db.sales.unshift({id:Date.now(),cut:sCut.value,client:sClient.value,pay:sPay.value,value:Math.max(0,value-discount),gross:value,discount,date:sDate.value||isoToday()});persist();e.target.reset();closeForms();toast('Corte salvo!')}
+function saveExpense(e){e.preventDefault();db.expenses.unshift({id:Date.now(),desc:eDesc.value,cat:eCat.value,value:+eValue.value||0,date:eDate.value||isoToday()});persist();e.target.reset();closeForms();toast('Gasto salvo!')}
+function saveStock(e){e.preventDefault();db.stock.unshift({id:Date.now(),name:pName.value,qty:+pQty.value||0,min:+pMin.value||0,cost:+pCost.value||0});persist();e.target.reset();closeForms();toast('Produto adicionado!')}
+function del(type,id){if(!confirm('Excluir este registro?'))return;db[type]=db[type].filter(x=>x.id!==id);persist();toast('Excluído')}
+function adjustStock(id,delta){let p=db.stock.find(x=>x.id===id);if(!p)return;p.qty=Math.max(0,p.qty+delta);persist();toast('Estoque atualizado')}
+function daysAgo(n){let d=new Date();d.setDate(d.getDate()-n);return d.toISOString().slice(0,10)}
+function sum(a){return a.reduce((s,x)=>s+(+x.value||0),0)}
+function renderAll(){
+let sales=sum(db.sales), exp=sum(db.expenses), profit=sales-exp;
+mSales.textContent=brl(sales);mExpenses.textContent=brl(exp);mProfit.textContent=brl(profit);mProfit.className=profit>=0?'green':'red';mCuts.textContent=db.sales.length;
+today.textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+let low=db.stock.filter(p=>p.qty<=p.min);lowCount.textContent=low.length;lowStock.innerHTML=low.length?low.map(p=>`<div style="margin:8px 0"><b>${esc(p.name)}</b> — ${p.qty} un. <span class="pill">mín. ${p.min}</span></div>`).join(''):'<div class="empty">Tudo certo no estoque.</div>';
+salesList.innerHTML=db.sales.length?db.sales.slice(0,80).map(x=>`<div class="item"><div><b>${esc(x.cut)}</b><small>${esc(x.client||'Cliente não informado')} · ${esc(x.pay)} · ${fmtDate(x.date)}</small></div><div style="text-align:right"><b class="green">${brl(x.value)}</b><button class="ghost" onclick="del('sales',${x.id})">Excluir</button></div></div>`).join(''):'<div class="card empty">Nenhum corte registrado ainda.</div>';
+expensesList.innerHTML=db.expenses.length?db.expenses.slice(0,80).map(x=>`<div class="item"><div><b>${esc(x.desc)}</b><small>${esc(x.cat)} · ${fmtDate(x.date)}</small></div><div style="text-align:right"><b class="red">${brl(x.value)}</b><button class="ghost" onclick="del('expenses',${x.id})">Excluir</button></div></div>`).join(''):'<div class="card empty">Nenhum gasto registrado ainda.</div>';
+stockList.innerHTML=db.stock.length?db.stock.map(p=>`<div class="item ${p.qty<=p.min?'low':''}"><div style="flex:1"><b>${esc(p.name)}</b><small>${p.qty} unidades · mínimo ${p.min} · custo ${brl(p.cost)}</small><div class="bar" style="margin-top:9px"><div class="fill" style="width:${Math.min(100,p.min?Math.round(p.qty/(p.min*3)*100):100)}%"></div></div></div><div style="display:flex;flex-direction:column;gap:5px"><button class="ghost" onclick="adjustStock(${p.id},1)">＋</button><button class="ghost" onclick="adjustStock(${p.id},-1)">−</button><button class="ghost" onclick="del('stock',${p.id})">×</button></div></div>`).join(''):'<div class="card empty">Cadastre seus produtos e materiais.</div>';
+drawChart('chart',7);reportMode(window.reportDays||'7');
+}
+function fmtDate(d){if(!d)return '';let [y,m,day]=d.split('-');return `${day}/${m}/${y}`}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function getRange(n){let end=isoToday(), start=n==='all'?'0000-00-00':daysAgo(+n-1);return {start,end}}
+function filtered(n){let r=getRange(n);return {s:db.sales.filter(x=>x.date>=r.start&&x.date<=r.end),e:db.expenses.filter(x=>x.date>=r.start&&x.date<=r.end)}}
+function drawChart(canvasId,n){
+let c=document.getElementById(canvasId),ctx=c.getContext('2d'),w=c.width=c.clientWidth*devicePixelRatio,h=c.height=220*devicePixelRatio;ctx.clearRect(0,0,w,h);ctx.font=`${12*devicePixelRatio}px system-ui`;
+let labels=[],sv=[],ev=[];for(let i=n-1;i>=0;i--){let d=daysAgo(i),label=d.slice(8,10)+'/'+d.slice(5,7);labels.push(label);sv.push(sum(db.sales.filter(x=>x.date===d)));ev.push(sum(db.expenses.filter(x=>x.date===d)))}let max=Math.max(1,...sv,...ev),pad=28*devicePixelRatio;
+ctx.strokeStyle='#dce2e9';ctx.lineWidth=1;for(let j=0;j<4;j++){let y=pad+(h-pad*1.5)*j/3;ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(w-10,y);ctx.stroke()}
+function line(vals){ctx.beginPath();vals.forEach((v,i)=>{let x=pad+i*(w-pad-12)/(vals.length-1||1),y=h-pad-(v/max)*(h-pad*1.6);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke()}
+ctx.lineWidth=3;ctx.strokeStyle='#159b68';line(sv);ctx.strokeStyle='#b42318';line(ev);ctx.fillStyle='#738196';ctx.font=`${10*devicePixelRatio}px system-ui`;labels.forEach((l,i)=>{if(i%Math.ceil(n/7)===0){let x=pad+i*(w-pad-12)/(labels.length-1||1);ctx.fillText(l,x-12*devicePixelRatio,h-7*devicePixelRatio)}})}
+function reportMode(n){window.reportDays=n;let {s,e}=filtered(n),sales=sum(s),expenses=sum(e),profit=sales-expenses;rSales.textContent=brl(sales);rExpenses.textContent=brl(expenses);rProfit.textContent=brl(profit);rProfit.className=profit>=0?'green':'red';rMargin.textContent=sales?Math.round(profit/sales*100)+'%':'0%';let pay={};s.forEach(x=>pay[x.pay]=(pay[x.pay]||0)+x.value);payments.innerHTML=Object.keys(pay).length?Object.entries(pay).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="margin:10px 0"><div style="display:flex;justify-content:space-between"><b>${esc(k)}</b><span>${brl(v)}</span></div><div class="bar"><div class="fill" style="width:${sales?Math.round(v/sales*100):0}%"></div></div></div>`).join(''):'<div class="empty">Sem vendas no período.</div>';drawReportChart(n)}
+function drawReportChart(n){let c=document.getElementById('reportChart'),ctx=c.getContext('2d'),w=c.width=c.clientWidth*devicePixelRatio,h=c.height=220*devicePixelRatio;ctx.clearRect(0,0,w,h);let count=n==='all'?Math.min(30,Math.max(7,new Set([...db.sales,...db.expenses].map(x=>x.date)).size||7)):+n;let labels=[],sv=[],ev=[];for(let i=count-1;i>=0;i--){let d=daysAgo(i);labels.push(d.slice(8,10)+'/'+d.slice(5,7));sv.push(sum(db.sales.filter(x=>x.date===d)));ev.push(sum(db.expenses.filter(x=>x.date===d)))}let max=Math.max(1,...sv,...ev),base=h-28*devicePixelRatio,step=(w-38*devicePixelRatio)/labels.length;sv.forEach((v,i)=>{let bh=(v/max)*(h-65*devicePixelRatio);ctx.fillStyle='#159b68';ctx.fillRect(24*devicePixelRatio+i*step,base-bh,step*.34,bh);let eh=(ev[i]/max)*(h-65*devicePixelRatio);ctx.fillStyle='#b42318';ctx.fillRect(24*devicePixelRatio+i*step+step*.38,base-eh,step*.34,eh)});ctx.fillStyle='#738196';ctx.font=`${10*devicePixelRatio}px system-ui`;labels.forEach((l,i)=>{if(i%Math.ceil(labels.length/7)===0)ctx.fillText(l,24*devicePixelRatio+i*step,base+16*devicePixelRatio)})}
+window.addEventListener('resize',renderAll);renderAll();
+</script>
+</body>
+</html>
