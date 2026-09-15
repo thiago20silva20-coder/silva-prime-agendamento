@@ -10,6 +10,18 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '1mb' }));
 
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'barbearia-silva-prime';
 const OWNER_UID = process.env.OWNER_UID || '';
 
@@ -65,11 +77,16 @@ const defaultConfig = {
 
 function minutes(value) {
   const [h, m] = String(value || '').split(':').map(Number);
-  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : NaN;
+  return Number.isFinite(h) && Number.isFinite(m)
+    ? h * 60 + m
+    : NaN;
 }
 
 async function getConfig() {
-  const result = { ...defaultConfig, services: fallbackServices };
+  const result = {
+    ...defaultConfig,
+    services: fallbackServices
+  };
 
   if (!db || !OWNER_UID) return result;
 
@@ -116,15 +133,6 @@ app.get('/api/config', async (_req, res) => {
   }
 });
 
-/*
- * =========================================================
- * BUSCAR AGENDAMENTOS
- * =========================================================
- * Esta é a rota que estava faltando:
- *
- * GET /api/appointments
- * GET /api/appointments?date=2026-09-14
- */
 app.get('/api/appointments', async (req, res) => {
   const date = String(req.query.date || '').trim();
 
@@ -157,7 +165,9 @@ app.get('/api/appointments', async (req, res) => {
         ...doc.data()
       }))
       .sort((a, b) =>
-        String(a.time || '').localeCompare(String(b.time || ''))
+        String(a.time || '').localeCompare(
+          String(b.time || '')
+        )
       );
 
     res.json({
@@ -206,15 +216,11 @@ app.get('/api/availability', async (req, res) => {
       )
       .map(a => ({
         start: minutes(a.time),
-        end:
-          minutes(a.time) +
-          Number(a.duration || 30)
+        end: minutes(a.time) + Number(a.duration || 30)
       }))
       .filter(a => Number.isFinite(a.start));
 
-    res.json({
-      busy
-    });
+    res.json({ busy });
   } catch (error) {
     console.error(
       'Erro ao consultar agenda:',
@@ -230,8 +236,7 @@ app.get('/api/availability', async (req, res) => {
 app.post('/api/appointments', async (req, res) => {
   if (!db || !OWNER_UID) {
     return res.status(503).json({
-      error:
-        'A conexão com a agenda ainda não está configurada.'
+      error: 'A conexão com a agenda ainda não está configurada.'
     });
   }
 
@@ -243,13 +248,7 @@ app.post('/api/appointments', async (req, res) => {
     phone
   } = req.body || {};
 
-  if (
-    !serviceId ||
-    !date ||
-    !time ||
-    !name ||
-    !phone
-  ) {
+  if (!serviceId || !date || !time || !name || !phone) {
     return res.status(400).json({
       error: 'Preencha todos os dados.'
     });
@@ -275,14 +274,12 @@ app.post('/api/appointments', async (req, res) => {
 
     if (!day?.on) {
       return res.status(400).json({
-        error:
-          'A barbearia não atende nesse dia.'
+        error: 'A barbearia não atende nesse dia.'
       });
     }
 
     const start = minutes(time);
-    const duration =
-      Number(service.duration || 30);
+    const duration = Number(service.duration || 30);
 
     if (!Number.isFinite(start)) {
       return res.status(400).json({
@@ -300,15 +297,12 @@ app.post('/api/appointments', async (req, res) => {
     const conflict = snap.docs
       .map(doc => doc.data())
       .filter(
-        a =>
-          !['CANCELLED', 'NO_SHOW']
-            .includes(a.status)
+        a => !['CANCELLED', 'NO_SHOW'].includes(a.status)
       )
       .some(a => {
         const otherStart = minutes(a.time);
         const otherEnd =
-          otherStart +
-          Number(a.duration || 30);
+          otherStart + Number(a.duration || 30);
 
         return (
           start < otherEnd &&
@@ -323,16 +317,10 @@ app.post('/api/appointments', async (req, res) => {
       });
     }
 
-    const total =
-      Number(service.price || 0);
-
-    const depositPct =
-      Number(config.depositPct ?? 50);
-
+    const total = Number(service.price || 0);
+    const depositPct = Number(config.depositPct ?? 50);
     const deposit =
-      Math.round(
-        total * depositPct
-      ) / 100;
+      Math.round(total * depositPct) / 100;
 
     const id =
       `${Date.now()}-${Math.random()
@@ -350,17 +338,12 @@ app.post('/api/appointments', async (req, res) => {
       phone: String(phone).trim(),
       total,
       deposit,
-      remaining:
-        Math.max(0, total - deposit),
+      remaining: Math.max(0, total - deposit),
       depositPct,
       depositStatus:
-        deposit > 0
-          ? 'PENDING'
-          : 'NOT_REQUIRED',
+        deposit > 0 ? 'PENDING' : 'NOT_REQUIRED',
       status:
-        deposit > 0
-          ? 'PENDING_PAYMENT'
-          : 'CONFIRMED',
+        deposit > 0 ? 'PENDING_PAYMENT' : 'CONFIRMED',
       source: 'online',
       createdAt: Date.now(),
       updatedAt: Date.now()
@@ -388,21 +371,27 @@ app.post('/api/appointments', async (req, res) => {
     );
 
     res.status(500).json({
-      error:
-        'Não foi possível criar o agendamento.'
+      error: 'Não foi possível criar o agendamento.'
     });
   }
 });
 
-/*
- * Rotas da aplicação
- */
+app.get('/agendar', (_req, res) => {
+  res.sendFile(
+    path.join(__dirname, 'index.html')
+  );
+});
+
 app.get('/', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(
+    path.join(__dirname, 'index.html')
+  );
 });
 
 app.get('/app', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'app.html'));
+  res.sendFile(
+    path.join(__dirname, 'app.html')
+  );
 });
 
 app.use(express.static(__dirname));
